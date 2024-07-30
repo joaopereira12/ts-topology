@@ -15,15 +15,22 @@ export class LWWElementSet<T> {
     }
 
     lookup(element: T): boolean {
-
         const addTimestamp = this._adds.get(element);
-        const removeTimestamp = this._removes.get(element);
-
-        if (addTimestamp !== undefined) {
-            if (removeTimestamp === undefined || addTimestamp > removeTimestamp || (addTimestamp-removeTimestamp === 0 && this._bias === Bias.ADD)) {
-                return true;
-            }
+        if(addTimestamp === undefined) {
+            return false;
         }
+
+        const removeTimestamp = this._removes.get(element);
+        if (removeTimestamp === undefined) {
+            return true;
+        }
+        if (addTimestamp > removeTimestamp) {
+            return true;
+        }
+        if (addTimestamp - removeTimestamp === 0 && this._bias === Bias.ADD) {
+            return true;
+        }
+
         return false;
     }
 
@@ -44,17 +51,10 @@ export class LWWElementSet<T> {
     }
 
     compare(peerSet: LWWElementSet<T>): boolean {
-        const adds = new Set(this._adds.keys());
-        const rems = new Set(this._removes.keys());
-        const otherAdds = new Set(peerSet._adds.keys());
-        const otherRems = new Set(peerSet._removes.keys());
-
-        return (compareSets(adds, otherAdds) && compareSets(rems, otherRems));
-
+        return (compareSets(this._adds, peerSet._adds) && compareSets(this._removes, peerSet._removes));
     }
 
     merge(peerSet: LWWElementSet<T>): void {
-
         for (let [element, timestamp] of peerSet._adds.entries()) {
             const thisTimestamp = this._adds.get(element);
             if (!thisTimestamp || thisTimestamp < timestamp) {
@@ -71,6 +71,6 @@ export class LWWElementSet<T> {
     }
 }
 
-function compareSets<T>(set1: Set<T>, set2: Set<T>): boolean {
-    return (set1.size == set2.size && [...set1].every(value => set2.has(value)));
+function compareSets<T>(set1: Map<T, number>, set2: Map<T, number>): boolean {
+    return (set1.size === set2.size && [...set1.keys()].every(key => set2.has(key)));
 }
